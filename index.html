@@ -7,13 +7,11 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230ea5e9'/%3E%3Cpath d='M256 96c-70 0-126 56-126 126 0 94 126 194 126 194s126-100 126-194c0-70-56-126-126-126z' fill='%23fff'/%3E%3Ccircle cx='256' cy='222' r='48' fill='%230ea5e9'/%3E%3C/svg%3E">
-<!-- Map CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <style>
   *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
-  body{background:#0f172a;color:#e2e8f0;min-height:100vh;padding-bottom:30px}
+  body{background:#0f172a;color:#e2e8f0;min-height:100vh;padding-bottom:90px}
   header{position:sticky;top:0;z-index:20;background:rgba(15,23,42,.95);backdrop-filter:blur(10px);padding:14px 16px 12px;border-bottom:1px solid #1e293b}
   h1{font-size:19px;font-weight:800;letter-spacing:-.3px}
   h1 span{color:#38bdf8}
@@ -21,6 +19,10 @@
   .btn{width:100%;margin-top:11px;padding:14px;border:0;border-radius:14px;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:.15s}
   .btn:active{transform:scale(.975)}
   .btn:disabled{opacity:.55}
+  .search-container{padding:12px 16px 0;}
+  #searchInput{width:100%; padding:12px 16px; border-radius:12px; border:1px solid #334155; background:#1e293b; color:#fff; font-size:14px; outline:none;}
+  #searchInput::placeholder{color:#64748b;}
+  #searchInput:focus{border-color:#0ea5e9;}
   .chips{display:flex;gap:8px;overflow-x:auto;padding:12px 16px 4px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
   .chip{white-space:nowrap;padding:9px 16px;border-radius:999px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
@@ -28,11 +30,8 @@
   .radius{display:flex;gap:8px;padding:10px 16px 2px}
   .radius button{flex:1;padding:8px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:12.5px;font-weight:600;cursor:pointer}
   .radius button.on{background:#38bdf8;border-color:#38bdf8;color:#04212e}
-  
-  /* Map Container */
   #map-container{padding: 10px 16px 0; display: none;}
   #map{height: 220px; width: 100%; border-radius: 14px; border: 1px solid #334155; z-index: 1;}
-
   #list{padding:14px 16px 0;display:grid;gap:10px}
   .card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:13px 14px;display:flex;gap:12px;align-items:center;cursor:pointer;transition:.15s}
   .card:active{background:#243449;transform:scale(.985)}
@@ -42,24 +41,26 @@
   .meta{font-size:11.5px;color:#94a3b8;line-height:1.45}
   .dist{text-align:right; display: flex; flex-direction: column; align-items: flex-end; justify-content: center;}
   .dist-num{font-size:12px;color:#38bdf8;font-weight:800;white-space:nowrap;}
-  
-  /* GO Button Style */
   .go-btn{display:inline-block; margin-top:5px; background:#0ea5e9; color:#04212e; font-size:10.5px; font-weight:800; padding:4px 8px; border-radius:6px; text-decoration:none;}
-  
   .badge{display:inline-block;background:#facc1520;color:#facc15;border:1px solid #facc1545;font-size:9.5px;padding:1px 6px;border-radius:5px;margin-left:5px;vertical-align:middle;font-weight:700}
   .empty{text-align:center;color:#64748b;padding:60px 24px;font-size:14px;line-height:1.7}
   .spin{width:26px;height:26px;border:3px solid #334155;border-top-color:#38bdf8;border-radius:50%;animation:r .8s linear infinite;margin:0 auto 16px}
   @keyframes r{to{transform:rotate(360deg)}}
+  .contact-wrapper { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+  .contact-btn { color: white; padding: 10px 16px; border-radius: 30px; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 8px; text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.1s; }
+  .contact-btn:active { transform: scale(0.95); }
+  .btn-insta { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
 </style>
 </head>
 <body>
-
 <header>
   <h1>📍 Aas-<span>Paas</span></h1>
   <div id="status">Neeche button dabaiye — aapke aas paas ki famous jagah dikhegi</div>
   <button class="btn" id="locBtn">📍 Meri Location Dhoondo</button>
 </header>
-
+<div class="search-container">
+  <input type="text" id="searchInput" placeholder="🔍 Dukan, hotel ya jagah ka naam likhein...">
+</div>
 <div class="chips" id="chips">
   <div class="chip on" data-f="all">🎯 Sab Kuch</div>
   <div class="chip" data-f="khana">🍽️ Khana-Peena</div>
@@ -67,53 +68,45 @@
   <div class="chip" data-f="shopping">🛍️ Dukan / Shopping</div>
   <div class="chip" data-f="ghumna">📸 Ghoomne Ki Jagah</div>
 </div>
-
 <div class="radius" id="radius">
   <button data-r="1000">1 km</button>
   <button data-r="2500" class="on">2.5 km</button>
   <button data-r="5000">5 km</button>
   <button data-r="10000">10 km</button>
 </div>
-
-<!-- Map yahan aayega -->
 <div id="map-container">
   <div id="map"></div>
 </div>
-
 <div id="list">
   <div class="empty">👆 Upar wala button dabaiye<br>Phir yahan list aayegi</div>
 </div>
-
+<div class="contact-wrapper">
+  <a href="https://www.instagram.com/neetprayag/" target="_blank" class="contact-btn btn-insta">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+    Instagram
+  </a>
+</div>
 <script>
 let map, markersGroup;
-const state = { loc:null, places:[], cat:'all', radius:2500, busy:false };
+const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' };
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').textContent = s;
-
 function initMap(lat, lon) {
   if (!map) {
     map = L.map('map').setView([lat, lon], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
     markersGroup = L.layerGroup().addTo(map);
-  } else {
-    map.setView([lat, lon], 14);
-  }
+  } else { map.setView([lat, lon], 14); }
   $('map-container').style.display = 'block';
-  
   markersGroup.clearLayers();
   L.circleMarker([lat, lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("Aap yahan hain");
 }
-
 function dist(a,b,c,d){
   const R=6371000, t=x=>x*Math.PI/180;
   const dLat=t(c-a), dLon=t(d-b);
   const h=Math.sin(dLat/2)**2 + Math.cos(t(a))*Math.cos(t(c))*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
 }
-
 function categorize(t){
   const am = t.amenity||'', to = t.tourism||'';
   if (/^(restaurant|cafe|fast_food|food_court)$/.test(am)) return 'khana';
@@ -122,7 +115,6 @@ function categorize(t){
   if (t.historic || /^(attraction|museum|viewpoint|artwork|gallery)$/.test(to) || t.leisure==='park') return 'ghumna';
   return 'other';
 }
-
 function iconFor(p){
   if (p.cat==='khana') return p.tags.amenity==='cafe' ? '☕' : '🍽️';
   if (p.cat==='hotel') return '🏨';
@@ -130,7 +122,6 @@ function iconFor(p){
   if (p.cat==='ghumna') return p.tags.historic ? '🏛️' : (p.tags.leisure==='park' ? '🌳' : '📸');
   return '📍';
 }
-
 function typeLabel(p){
   const t = p.tags;
   const mapObj = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court', hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel', attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery', park:'Park', marketplace:'Market' };
@@ -140,7 +131,6 @@ function typeLabel(p){
   if (t.historic) return 'Historical Place';
   return 'Place';
 }
-
 function buildQuery(lat, lon, r){
   const A = q => `node[${q}](around:${r},${lat},${lon});`;
   const parts = [
@@ -154,7 +144,6 @@ function buildQuery(lat, lon, r){
   ];
   return `[out:json][timeout:15];(${parts.join('')});out body 200;`;
 }
-
 async function getData(q){
   const servers = [
     'https://overpass-api.de/api/interpreter?data=',
@@ -175,35 +164,26 @@ async function getData(q){
   }
   throw new Error("All servers failed");
 }
-
 async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true;
   $('locBtn').disabled = true;
   $('list').innerHTML = '<div class="empty"><div class="spin"></div>Data la rahe hain...</div>';
   setStatus('🔎 ' + (state.radius/1000) + ' km ke andar search ho raha hai...');
-
   initMap(state.loc.lat, state.loc.lon);
-
   try{
     const data = await getData(buildQuery(state.loc.lat, state.loc.lon, state.radius));
     const seen = new Set();
-    
-    let places = (data.elements || [])
-      .filter(e => e.tags && e.tags.name && e.lat && e.lon)
-      .map(e => {
+    let places = (data.elements || []).filter(e => e.tags && e.tags.name && e.lat && e.lon).map(e => {
         const d = dist(state.loc.lat, state.loc.lon, e.lat, e.lon);
         return { name: e.tags.name, tags: e.tags, lat: e.lat, lon: e.lon, d: d, cat: categorize(e.tags), famous: !!(e.tags.wikidata || e.tags.wikipedia || e.tags.stars || e.tags.heritage) };
-      })
-      .filter(p => {
+      }).filter(p => {
         const k = p.name.toLowerCase().trim();
         if (seen.has(k)) return false;
         seen.add(k); return true;
       });
-
     places.sort((a,b) => (a.d - (a.famous?1200:0)) - (b.d - (b.famous?1200:0)));
     state.places = places;
-
     if(places.length === 0) {
       $('list').innerHTML = '<div class="empty">Is area mein koi jagah nahi mili.<br>Kripya 5 km ya 10 km select karein.</div>';
       setStatus('❌ 0 jagah mili');
@@ -219,28 +199,20 @@ async function loadPlaces(){
     $('locBtn').disabled = false;
   }
 }
-
 function render(){
   const list = $('list');
-  const items = state.cat === 'all' ? state.places : state.places.filter(p => p.cat === state.cat);
-
+  let items = state.cat === 'all' ? state.places : state.places.filter(p => p.cat === state.cat);
+  if (state.search) { items = items.filter(p => p.name.toLowerCase().includes(state.search)); }
   markersGroup.clearLayers();
   L.circleMarker([state.loc.lat, state.loc.lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("Aap yahan hain");
-
-  items.forEach(p => {
-    L.circleMarker([p.lat, p.lon], {color: '#facc15', radius: 6, fillOpacity: 0.8}).addTo(markersGroup).bindPopup(p.name);
-  });
-
+  items.forEach(p => { L.circleMarker([p.lat, p.lon], {color: '#facc15', radius: 6, fillOpacity: 0.8}).addTo(markersGroup).bindPopup(p.name); });
   if (!items.length){
-    list.innerHTML = '<div class="empty">Is category mein kuch nahi mila.<br>Doosri category try karein.</div>';
+    list.innerHTML = '<div class="empty">Aapki search se kuch nahi mila.<br>Doosra naam try karein.</div>';
     return;
   }
-
   list.innerHTML = items.map((p,i) => {
     const d = p.d < 1000 ? Math.round(p.d) + ' m' : (p.d/1000).toFixed(1) + ' km';
     const addr = [p.tags['addr:street'], p.tags['addr:city']].filter(Boolean).join(', ');
-    
-    // Yahan "Go" button wapas add kar diya gaya hai
     return `<div class="card" data-i="${state.places.indexOf(p)}">
       <div class="ico">${iconFor(p)}</div>
       <div class="body">
@@ -253,32 +225,27 @@ function render(){
       </div>
     </div>`;
   }).join('');
-
   list.querySelectorAll('.card').forEach(el => {
     el.onclick = () => {
       const p = state.places[+el.dataset.i];
-      // Card par tap karne se Map zoom hoga
       map.setView([p.lat, p.lon], 17); 
       window.scrollTo({ top: 0, behavior: 'smooth' }); 
     };
   });
 }
-
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
+$('searchInput').addEventListener('input', e => { state.search = e.target.value.toLowerCase().trim(); render(); });
 $('chips').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
   document.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
   c.classList.add('on'); state.cat = c.dataset.f; render();
 });
-
 $('radius').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   document.querySelectorAll('#radius button').forEach(x => x.classList.remove('on'));
   b.classList.add('on'); state.radius = +b.dataset.r;
   if (state.loc) loadPlaces();
 });
-
 $('locBtn').onclick = () => {
   if (!navigator.geolocation) return setStatus('❌ GPS support nahi hai');
   setStatus('📡 Location dhoond rahe hain...');
@@ -297,7 +264,6 @@ $('locBtn').onclick = () => {
     { enableHighAccuracy:false, timeout:15000, maximumAge:60000 }
   );
 };
-
 if ('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
