@@ -67,17 +67,10 @@
 </div>
 
 <script>
-const MIRRORS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter'
-];
-
 const state = { loc:null, places:[], cat:'all', radius:2500, busy:false };
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').textContent = s;
 
-/* ---------- Geodesic distance (meters) ---------- */
 function dist(a,b,c,d){
   const R=6371000, t=x=>x*Math.PI/180;
   const dLat=t(c-a), dLon=t(d-b);
@@ -85,7 +78,6 @@ function dist(a,b,c,d){
   return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
 }
 
-/* ---------- Categorize a place ---------- */
 function categorize(t){
   const am = t.amenity||'', to = t.tourism||'';
   if (/^(restaurant|cafe|fast_food|food_court)$/.test(am)) return 'khana';
@@ -105,12 +97,7 @@ function iconFor(p){
 
 function typeLabel(p){
   const t = p.tags;
-  const map = {
-    restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court',
-    hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel',
-    attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery',
-    park:'Park', marketplace:'Market'
-  };
+  const map = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court', hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel', attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery', park:'Park', marketplace:'Market' };
   let v = map[t.amenity] || map[t.tourism] || map[t.leisure] || null;
   if (v) return v;
   if (t.shop) return t.shop.charAt(0).toUpperCase()+t.shop.slice(1)+' Shop';
@@ -118,93 +105,93 @@ function typeLabel(p){
   return 'Place';
 }
 
-/* ---------- Overpass query ---------- */
 function buildQuery(lat, lon, r){
   const A = q => `node[${q}](around:${r},${lat},${lon});`;
   const parts = [
     A('"amenity"~"^(restaurant|cafe|fast_food|food_court)$"'),
     A('"tourism"~"^(hotel|guest_house|hostel|motel)$"'),
-    A('"shop"~"^(supermarket|mall|department_store|clothes|jewelry|bakery|convenience|electronics|shoes|gift)$"'),
+    A('"shop"~"^(supermarket|mall|department_store|clothes|bakery|convenience)$"'),
     A('"amenity"="marketplace"'),
-    A('"tourism"~"^(attraction|museum|viewpoint|artwork|gallery)$"'),
+    A('"tourism"~"^(attraction|museum|viewpoint|gallery)$"'),
     A('"historic"'),
     A('"leisure"="park"')
   ];
-  return `[out:json][timeout:25];(${parts.join('')});out body 500;`;
+  return `[out:json][timeout:15];(${parts.join('')});out body 200;`;
 }
 
-async function queryOverpass(q){
-  let lastErr = null;
-  for (const url of MIRRORS){
-    try{
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 25000);
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:'data=' + encodeURIComponent(q),
-        signal: ctrl.signal
-      });
-      clearTimeout(timer);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await res.json();
-    }catch(e){ lastErr = e; }
+// Naya Data Lene Ka Tarika (CORS Proxy ke sath)
+async function getData(q){
+  const servers = [
+    'https://overpass-api.de/api/interpreter?data=',
+    'https://overpass.kumi.systems/api/interpreter?data=',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter?data='
+  ];
+  
+  for(let server of servers){
+    try {
+      // 1. Direct try
+      let res = await fetch(server + encodeURIComponent(q));
+      if(res.ok) return await res.json();
+    } catch(e) {
+      try {
+        // 2. Proxy try (agar direct block ho)
+        let proxy = 'https://api.allorigins.win/raw?url=';
+        let res = await fetch(proxy + encodeURIComponent(server + encodeURIComponent(q)));
+        if(res.ok) return await res.json();
+      } catch(e2) {}
+    }
   }
-  throw lastErr;
+  throw new Error("All servers failed");
 }
 
-/* ---------- Main loader ---------- */
 async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true;
   $('locBtn').disabled = true;
-  $('list').innerHTML = '<div class="empty"><div class="spin"></div>Aas-paas ki jagah dhoond rahe hain...</div>';
+  $('list').innerHTML = '<div class="empty"><div class="spin"></div>Data la rahe hain...</div>';
   setStatus('🔎 ' + (state.radius/1000) + ' km ke andar search ho raha hai...');
 
   try{
-    const data = await queryOverpass(buildQuery(state.loc.lat, state.loc.lon, state.radius));
+    const data = await getData(buildQuery(state.loc.lat, state.loc.lon, state.radius));
     const seen = new Set();
+    
     let places = (data.elements || [])
       .filter(e => e.tags && e.tags.name && e.lat && e.lon)
       .map(e => {
         const d = dist(state.loc.lat, state.loc.lon, e.lat, e.lon);
-        return {
-          name: e.tags.name,
-          tags: e.tags,
-          lat: e.lat, lon: e.lon,
-          d: d,
-          cat: categorize(e.tags),
-          famous: !!(e.tags.wikidata || e.tags.wikipedia || e.tags.stars || e.tags.heritage)
-        };
+        return { name: e.tags.name, tags: e.tags, lat: e.lat, lon: e.lon, d: d, cat: categorize(e.tags), famous: !!(e.tags.wikidata || e.tags.wikipedia || e.tags.stars || e.tags.heritage) };
       })
       .filter(p => {
         const k = p.name.toLowerCase().trim();
         if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
+        seen.add(k); return true;
       });
 
     places.sort((a,b) => (a.d - (a.famous?1200:0)) - (b.d - (b.famous?1200:0)));
     state.places = places;
 
-    setStatus(`✅ ${places.length} jagah mili · ${(state.radius/1000)} km ke andar`);
-    render();
+    if(places.length === 0) {
+      $('list').innerHTML = '<div class="empty">Is area mein koi jagah nahi mili.<br>Kripya 5 km ya 10 km select karein.</div>';
+      setStatus('❌ 0 jagah mili');
+    } else {
+      setStatus(`✅ ${places.length} jagah mili · ${(state.radius/1000)} km ke andar`);
+      render();
+    }
   }catch(err){
-    $('list').innerHTML = '<div class="empty">❌ Data nahi aaya.<br><br>Internet check karein ya thodi der baad dobara try karein.</div>';
-    setStatus('❌ Server busy hai — dobara button dabaiye');
+    $('list').innerHTML = '<div class="empty">❌ Network problem.<br><br>Kripya Internet check karein aur <b>"Dobara Search"</b> dabayein.</div>';
+    setStatus('❌ Data nahi aaya');
   }finally{
     state.busy = false;
     $('locBtn').disabled = false;
   }
 }
 
-/* ---------- Render ---------- */
 function render(){
   const list = $('list');
   const items = state.cat === 'all' ? state.places : state.places.filter(p => p.cat === state.cat);
 
   if (!items.length){
-    list.innerHTML = '<div class="empty">Is category mein kuch nahi mila.<br>Doosri category ya zyada km try karein.</div>';
+    list.innerHTML = '<div class="empty">Is category mein kuch nahi mila.<br>Doosri category try karein.</div>';
     return;
   }
 
@@ -231,33 +218,22 @@ function render(){
 
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-/* ---------- Events ---------- */
 $('chips').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
   document.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
-  c.classList.add('on');
-  state.cat = c.dataset.f;
-  render();
+  c.classList.add('on'); state.cat = c.dataset.f; render();
 });
 
 $('radius').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   document.querySelectorAll('#radius button').forEach(x => x.classList.remove('on'));
-  b.classList.add('on');
-  state.radius = +b.dataset.r;
+  b.classList.add('on'); state.radius = +b.dataset.r;
   if (state.loc) loadPlaces();
 });
 
 $('locBtn').onclick = () => {
-  if (!navigator.geolocation){
-    setStatus('❌ Ye browser location support nahi karta');
-    return;
-  }
-  if (!window.isSecureContext){
-    setStatus('❌ Location ke liye HTTPS zaroori hai (Netlify link use karein)');
-    return;
-  }
-  setStatus('📡 Aapki location dhoond rahe hain...');
+  if (!navigator.geolocation) return setStatus('❌ GPS support nahi hai');
+  setStatus('📡 Location dhoond rahe hain...');
   $('locBtn').disabled = true;
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -268,24 +244,10 @@ $('locBtn').onclick = () => {
     },
     err => {
       $('locBtn').disabled = false;
-      const msg = {
-        1: 'Location permission deny ho gayi. Settings mein allow karein.',
-        2: 'Location available nahi hai. GPS on karein.',
-        3: 'Location lene mein bahut time laga. Dobara try karein.'
-      }[err.code] || err.message;
-      setStatus('❌ ' + msg);
+      setStatus('❌ Location nahi mili. GPS on karein.');
     },
-    { enableHighAccuracy:true, timeout:20000, maximumAge:60000 }
+    { enableHighAccuracy:false, timeout:15000, maximumAge:60000 }
   );
-};
-
-if (localStorage.getItem('ap_loc')){
-  try{ state.loc = JSON.parse(localStorage.getItem('ap_loc')); }catch(e){}
-}
-const _origLoad = loadPlaces;
-loadPlaces = async function(){
-  if (state.loc) localStorage.setItem('ap_loc', JSON.stringify(state.loc));
-  return _origLoad();
 };
 
 if ('serviceWorker' in navigator){
