@@ -7,6 +7,10 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230ea5e9'/%3E%3Cpath d='M256 96c-70 0-126 56-126 126 0 94 126 194 126 194s126-100 126-194c0-70-56-126-126-126z' fill='%23fff'/%3E%3Ccircle cx='256' cy='222' r='48' fill='%230ea5e9'/%3E%3C/svg%3E">
+<!-- Map CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <style>
   *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
   body{background:#0f172a;color:#e2e8f0;min-height:100vh;padding-bottom:30px}
@@ -24,6 +28,11 @@
   .radius{display:flex;gap:8px;padding:10px 16px 2px}
   .radius button{flex:1;padding:8px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:12.5px;font-weight:600;cursor:pointer}
   .radius button.on{background:#38bdf8;border-color:#38bdf8;color:#04212e}
+  
+  /* Map Container */
+  #map-container{padding: 10px 16px 0; display: none;}
+  #map{height: 220px; width: 100%; border-radius: 14px; border: 1px solid #334155; z-index: 1;}
+
   #list{padding:14px 16px 0;display:grid;gap:10px}
   .card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:13px 14px;display:flex;gap:12px;align-items:center;cursor:pointer;transition:.15s}
   .card:active{background:#243449;transform:scale(.985)}
@@ -62,14 +71,37 @@
   <button data-r="10000">10 km</button>
 </div>
 
+<!-- Map yahan aayega -->
+<div id="map-container">
+  <div id="map"></div>
+</div>
+
 <div id="list">
   <div class="empty">👆 Upar wala button dabaiye<br>Phir yahan list aayegi</div>
 </div>
 
 <script>
+let map, markersGroup;
 const state = { loc:null, places:[], cat:'all', radius:2500, busy:false };
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').textContent = s;
+
+function initMap(lat, lon) {
+  if (!map) {
+    map = L.map('map').setView([lat, lon], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+    markersGroup = L.layerGroup().addTo(map);
+  } else {
+    map.setView([lat, lon], 14);
+  }
+  $('map-container').style.display = 'block';
+  
+  markersGroup.clearLayers();
+  L.circleMarker([lat, lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("Aap yahan hain");
+}
 
 function dist(a,b,c,d){
   const R=6371000, t=x=>x*Math.PI/180;
@@ -97,8 +129,8 @@ function iconFor(p){
 
 function typeLabel(p){
   const t = p.tags;
-  const map = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court', hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel', attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery', park:'Park', marketplace:'Market' };
-  let v = map[t.amenity] || map[t.tourism] || map[t.leisure] || null;
+  const mapObj = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court', hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel', attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery', park:'Park', marketplace:'Market' };
+  let v = mapObj[t.amenity] || mapObj[t.tourism] || mapObj[t.leisure] || null;
   if (v) return v;
   if (t.shop) return t.shop.charAt(0).toUpperCase()+t.shop.slice(1)+' Shop';
   if (t.historic) return 'Historical Place';
@@ -119,22 +151,18 @@ function buildQuery(lat, lon, r){
   return `[out:json][timeout:15];(${parts.join('')});out body 200;`;
 }
 
-// Naya Data Lene Ka Tarika (CORS Proxy ke sath)
 async function getData(q){
   const servers = [
     'https://overpass-api.de/api/interpreter?data=',
     'https://overpass.kumi.systems/api/interpreter?data=',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter?data='
   ];
-  
   for(let server of servers){
     try {
-      // 1. Direct try
       let res = await fetch(server + encodeURIComponent(q));
       if(res.ok) return await res.json();
     } catch(e) {
       try {
-        // 2. Proxy try (agar direct block ho)
         let proxy = 'https://api.allorigins.win/raw?url=';
         let res = await fetch(proxy + encodeURIComponent(server + encodeURIComponent(q)));
         if(res.ok) return await res.json();
@@ -150,6 +178,8 @@ async function loadPlaces(){
   $('locBtn').disabled = true;
   $('list').innerHTML = '<div class="empty"><div class="spin"></div>Data la rahe hain...</div>';
   setStatus('🔎 ' + (state.radius/1000) + ' km ke andar search ho raha hai...');
+
+  initMap(state.loc.lat, state.loc.lon);
 
   try{
     const data = await getData(buildQuery(state.loc.lat, state.loc.lon, state.radius));
@@ -190,6 +220,13 @@ function render(){
   const list = $('list');
   const items = state.cat === 'all' ? state.places : state.places.filter(p => p.cat === state.cat);
 
+  markersGroup.clearLayers();
+  L.circleMarker([state.loc.lat, state.loc.lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("Aap yahan hain");
+
+  items.forEach(p => {
+    L.circleMarker([p.lat, p.lon], {color: '#facc15', radius: 6, fillOpacity: 0.8}).addTo(markersGroup).bindPopup(p.name);
+  });
+
   if (!items.length){
     list.innerHTML = '<div class="empty">Is category mein kuch nahi mila.<br>Doosri category try karein.</div>';
     return;
@@ -211,7 +248,8 @@ function render(){
   list.querySelectorAll('.card').forEach(el => {
     el.onclick = () => {
       const p = state.places[+el.dataset.i];
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`, '_blank');
+      map.setView([p.lat, p.lon], 17); 
+      window.scrollTo({ top: 0, behavior: 'smooth' }); 
     };
   });
 }
