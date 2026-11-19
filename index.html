@@ -91,7 +91,6 @@
   <button class="mic-btn" id="micBtn">🎤</button>
 </div>
 
-<!-- Sirf Khana, Shopping, Hotel aur Ghoomne ki jagah -->
 <div class="chips" id="chips">
   <div class="chip on" data-f="all" data-i18n="catAll">🎯 Sab Kuch</div>
   <div class="chip" data-f="fav" data-i18n="catFav">⭐ Saved</div>
@@ -105,7 +104,7 @@
   <button data-r="1000" class="on">1 km</button>
   <button data-r="2500">2.5 km</button>
   <button data-r="5000">5 km</button>
-  <button data-r="10000">10 km</button>
+  <div class="chip" data-f="ghumna" data-i18n="catTour">📸 Ghoomna</div>
 </div>
 
 <div id="map-container">
@@ -135,7 +134,7 @@ const i18n = {
     locFinding: "📡 Location dhoond rahe hain...", locErr: "❌ Location nahi mili. GPS on karein.",
     netErr: "❌ Server busy.<br><br>Kripya 2.5 km select karein ya thodi der baad <b>'Search Again'</b> dabayein.",
     noResult: "Aapki search se kuch nahi mila.<br>Doosra naam try karein.",
-    notFound: "Is area mein koi jagah nahi mili.<br>Kripya 2.5 km ya 5 km select karein.",
+    notFound: "Is area mein koi jagah nahi mili.<br>Kripya 5 km ya 10 km select karein.",
     noFav: "Aapne abhi tak koi jagah save nahi ki hai.<br>Kisi bhi card par ⭐ dabakar save karein.",
     micErr: "Aapka browser voice search support nahi karta.",
     shareText: "Bhai yeh app check kar, aas-paas ki dukan aur hotel dhoondhne ke liye mast hai!", shareCopied: "Link copy ho gaya hai!"
@@ -150,7 +149,7 @@ const i18n = {
     locFinding: "📡 Finding your location...", locErr: "❌ Location not found. Turn on GPS.",
     netErr: "❌ Server busy.<br><br>Try 2.5 km or try again in a moment.",
     noResult: "Nothing found for your search.<br>Try another name.",
-    notFound: "No places found.<br>Try 2.5 km.",
+    notFound: "No places found.<br>Try 5 km or 10 km.",
     noFav: "You haven't saved any places yet.<br>Tap ⭐ on any card to save.",
     micErr: "Your browser does not support voice search.",
     shareText: "Check out this awesome app to find nearby places!", shareCopied: "Link copied to clipboard!"
@@ -159,7 +158,7 @@ const i18n = {
 
 let currentLang = localStorage.getItem('ap_lang') || 'hi';
 let map, markersGroup;
-const state = { loc:null, places:[], cat:'all', radius:1000, busy:false, search:'' };
+const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' }; // Default 2.5km kar diya
 let favorites = JSON.parse(localStorage.getItem('ap_favs') || '[]');
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').textContent = s;
@@ -243,18 +242,19 @@ function typeLabel(p){
   return 'Place';
 }
 
+// FIX: nwr (Node, Way, Relation) ka use kiya hai taaki buildings bhi mil sakein
 function buildQuery(lat, lon, r){
-  const A = q => `node[${q}](around:${r},${lat},${lon});`;
+  const A = q => `nwr[${q}](around:${r},${lat},${lon});`;
   const parts = [
     A('"amenity"~"^(restaurant|cafe|fast_food|food_court)$"'),
     A('"tourism"~"^(hotel|guest_house|hostel|motel)$"'),
-    A('"shop"~"^(supermarket|mall|department_store|clothes)$"'),
+    A('"shop"'), // Ab har tarah ki dukan dhoondhega
     A('"amenity"="marketplace"'),
     A('"tourism"~"^(attraction|museum|viewpoint|gallery)$"'),
     A('"historic"'),
     A('"leisure"="park"')
   ];
-  return `[out:json][timeout:10];(${parts.join('')});out center 30;`;
+  return `[out:json][timeout:15];(${parts.join('')});out center 100;`; 
 }
 
 async function getData(q){
@@ -287,16 +287,20 @@ async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true; $('locBtn').disabled = true;
   
-  const cacheKey = `cache_v4_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
+  // Naya Cache version taaki purana khali data clear ho jaye
+  const cacheKey = `cache_v5_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
   const cachedData = localStorage.getItem(cacheKey);
 
   if (cachedData) {
-    state.places = JSON.parse(cachedData);
-    setStatus(`✅ Saved Data · ${(state.radius/1000)} km`);
-    initMap(state.loc.lat, state.loc.lon);
-    render();
-    state.busy = false; $('locBtn').disabled = false;
-    return; 
+    let p = JSON.parse(cachedData);
+    if(p.length > 0) { // Sirf tab dikhao jab data ho
+      state.places = p;
+      setStatus(`✅ Saved Data · ${(state.radius/1000)} km`);
+      initMap(state.loc.lat, state.loc.lon);
+      render();
+      state.busy = false; $('locBtn').disabled = false;
+      return; 
+    }
   }
 
   $('list').innerHTML = `<div class="empty"><div class="spin"></div>${i18n[currentLang]['loading']}</div>`;
@@ -306,17 +310,28 @@ async function loadPlaces(){
   try{
     const data = await getData(buildQuery(state.loc.lat, state.loc.lon, state.radius));
     const seen = new Set();
-    let places = (data.elements || []).filter(e => e.tags && e.tags.name && e.lat && e.lon).map(e => {
-        const d = dist(state.loc.lat, state.loc.lon, e.lat, e.lon);
-        return { id: e.id, name: e.tags.name, tags: e.tags, lat: e.lat, lon: e.lon, d: d, cat: categorize(e.tags), famous: !!(e.tags.wikidata || e.tags.wikipedia || e.tags.stars || e.tags.heritage) };
+    
+    // Way (building) ka center nikalne ka logic
+    let places = (data.elements || []).filter(e => e.tags && e.tags.name).map(e => {
+        let lat = e.lat || (e.center && e.center.lat);
+        let lon = e.lon || (e.center && e.center.lon);
+        if(!lat || !lon) return null; // Agar location nahi mili toh skip karo
+        
+        const d = dist(state.loc.lat, state.loc.lon, lat, lon);
+        return { id: e.id, name: e.tags.name, tags: e.tags, lat: lat, lon: lon, d: d, cat: categorize(e.tags), famous: !!(e.tags.wikidata || e.tags.wikipedia || e.tags.stars || e.tags.heritage) };
       }).filter(p => {
+        if (!p) return false;
         const k = p.name.toLowerCase().trim();
         if (seen.has(k)) return false; seen.add(k); return true;
       });
+      
     places.sort((a,b) => (a.d - (a.famous?1000:0)) - (b.d - (b.famous?1000:0)));
     state.places = places;
     
-    localStorage.setItem(cacheKey, JSON.stringify(places));
+    // Agar data mila tabhi save karo
+    if(places.length > 0) {
+      localStorage.setItem(cacheKey, JSON.stringify(places));
+    }
 
     if(places.length === 0) {
       $('list').innerHTML = `<div class="empty">${i18n[currentLang]['notFound']}</div>`; setStatus('❌ 0');
