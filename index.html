@@ -91,16 +91,13 @@
   <button class="mic-btn" id="micBtn">🎤</button>
 </div>
 
+<!-- Sirf Khana, Shopping, Hotel aur Ghoomne ki jagah -->
 <div class="chips" id="chips">
   <div class="chip on" data-f="all" data-i18n="catAll">🎯 Sab Kuch</div>
   <div class="chip" data-f="fav" data-i18n="catFav">⭐ Saved</div>
   <div class="chip" data-f="khana" data-i18n="catFood">🍽️ Khana</div>
   <div class="chip" data-f="shopping" data-i18n="catShop">🛍️ Shopping</div>
   <div class="chip" data-f="hotel" data-i18n="catHotel">🏨 Hotel</div>
-  <div class="chip" data-f="hospital" data-i18n="catHosp">🏥 Hospital</div>
-  <div class="chip" data-f="pharmacy" data-i18n="catPharma">💊 Medical</div>
-  <div class="chip" data-f="atm" data-i18n="catATM">🏧 ATM</div>
-  <div class="chip" data-f="petrol" data-i18n="catFuel">⛽ Petrol</div>
   <div class="chip" data-f="ghumna" data-i18n="catTour">📸 Ghoomna</div>
 </div>
 
@@ -132,7 +129,7 @@ const i18n = {
     statusInit: "Neeche button dabaiye — aapke aas paas ki famous jagah dikhegi",
     btnLoc: "📍 Meri Location Dhoondo", btnLocAgain: "🔄 Dobara Search Karein",
     searchPh: "🔍 Dukan, hotel ya jagah ka naam likhein...",
-    catAll: "🎯 Sab Kuch", catFav: "⭐ Saved", catFood: "🍽️ Khana", catShop: "🛍️ Shopping", catHotel: "🏨 Hotel", catHosp: "🏥 Hospital", catPharma: "💊 Medical", catATM: "🏧 ATM", catFuel: "⛽ Petrol", catTour: "📸 Ghoomna",
+    catAll: "🎯 Sab Kuch", catFav: "⭐ Saved", catFood: "🍽️ Khana", catShop: "🛍️ Shopping", catHotel: "🏨 Hotel", catTour: "📸 Ghoomna",
     emptyList: "👆 Upar wala button dabaiye<br>Phir yahan list aayegi",
     loading: "Data la rahe hain...", searching: "km ke andar search ho raha hai...",
     locFinding: "📡 Location dhoond rahe hain...", locErr: "❌ Location nahi mili. GPS on karein.",
@@ -147,7 +144,7 @@ const i18n = {
     statusInit: "Tap the button below to find nearby famous places",
     btnLoc: "📍 Find My Location", btnLocAgain: "🔄 Search Again",
     searchPh: "🔍 Type or speak place name...",
-    catAll: "🎯 All", catFav: "⭐ Saved", catFood: "🍽️ Food", catShop: "🛍️ Shopping", catHotel: "🏨 Hotel", catHosp: "🏥 Hospital", catPharma: "💊 Pharmacy", catATM: "🏧 ATM", catFuel: "⛽ Petrol", catTour: "📸 Sightseeing",
+    catAll: "🎯 All", catFav: "⭐ Saved", catFood: "🍽️ Food", catShop: "🛍️ Shopping", catHotel: "🏨 Hotel", catTour: "📸 Sightseeing",
     emptyList: "👆 Tap the button above<br>to see places here",
     loading: "Fetching data...", searching: "km area searched...",
     locFinding: "📡 Finding your location...", locErr: "❌ Location not found. Turn on GPS.",
@@ -224,10 +221,6 @@ function categorize(t){
   if (/^(restaurant|cafe|fast_food|food_court)$/.test(am)) return 'khana';
   if (/^(hotel|guest_house|hostel|motel)$/.test(to)) return 'hotel';
   if (t.shop || am==='marketplace') return 'shopping';
-  if (am==='hospital') return 'hospital';
-  if (/^(pharmacy|clinic|doctors)$/.test(am)) return 'pharmacy';
-  if (am==='atm' || am==='bank') return 'atm';
-  if (am==='fuel') return 'petrol';
   if (t.historic || /^(attraction|museum|viewpoint|artwork|gallery)$/.test(to) || t.leisure==='park') return 'ghumna';
   return 'other';
 }
@@ -236,17 +229,13 @@ function iconFor(p){
   if (p.cat==='khana') return p.tags.amenity==='cafe' ? '☕' : '🍽️';
   if (p.cat==='hotel') return '🏨';
   if (p.cat==='shopping') return '🛍️';
-  if (p.cat==='hospital') return '🏥';
-  if (p.cat==='pharmacy') return '💊';
-  if (p.cat==='atm') return '🏧';
-  if (p.cat==='petrol') return '⛽';
   if (p.cat==='ghumna') return p.tags.historic ? '🏛️' : (p.tags.leisure==='park' ? '🌳' : '📸');
   return '📍';
 }
 
 function typeLabel(p){
   const t = p.tags;
-  const mapObj = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court', hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel', attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery', park:'Park', marketplace:'Market', pharmacy:'Medical Store', hospital:'Hospital', clinic:'Clinic', doctors:'Doctor', atm:'ATM', bank:'Bank', fuel:'Petrol Pump' };
+  const mapObj = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court', hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel', attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery', park:'Park', marketplace:'Market' };
   let v = mapObj[t.amenity] || mapObj[t.tourism] || mapObj[t.leisure] || null;
   if (v) return v;
   if (t.shop) return t.shop.charAt(0).toUpperCase()+t.shop.slice(1)+' Shop';
@@ -254,22 +243,20 @@ function typeLabel(p){
   return 'Place';
 }
 
-// Lighter Query: Only essential places, 25 limit
 function buildQuery(lat, lon, r){
   const A = q => `node[${q}](around:${r},${lat},${lon});`;
   const parts = [
     A('"amenity"~"^(restaurant|cafe|fast_food|food_court)$"'),
     A('"tourism"~"^(hotel|guest_house|hostel|motel)$"'),
-    A('"shop"~"^(supermarket|mall|convenience)$"'),
-    A('"amenity"~"^(pharmacy|hospital|clinic|atm|bank|fuel)$"'),
-    A('"tourism"~"^(attraction|viewpoint)"'),
+    A('"shop"~"^(supermarket|mall|department_store|clothes)$"'),
+    A('"amenity"="marketplace"'),
+    A('"tourism"~"^(attraction|museum|viewpoint|gallery)$"'),
     A('"historic"'),
     A('"leisure"="park"')
   ];
-  return `[out:json][timeout:10];(${parts.join('')});out center 25;`;
+  return `[out:json][timeout:10];(${parts.join('')});out center 30;`;
 }
 
-// Direct Server Connection
 async function getData(q){
   const servers = [
     'https://overpass-api.de/api/interpreter?data=',
@@ -280,14 +267,13 @@ async function getData(q){
   for(let server of servers){
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 10000); // 10 second
+      const timer = setTimeout(() => ctrl.abort(), 10000);
       let res = await fetch(server + encodeURIComponent(q), { signal: ctrl.signal });
       clearTimeout(timer);
       if(res.ok) return await res.json();
     } catch(e) {}
   }
   
-  // Fast Proxy
   try { 
     let proxy = 'https://corsproxy.io/?'; 
     let res = await fetch(proxy + encodeURIComponent('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q))); 
@@ -301,7 +287,7 @@ async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true; $('locBtn').disabled = true;
   
-  const cacheKey = `cache_v3_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
+  const cacheKey = `cache_v4_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
   const cachedData = localStorage.getItem(cacheKey);
 
   if (cachedData) {
