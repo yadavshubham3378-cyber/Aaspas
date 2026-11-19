@@ -40,8 +40,12 @@
   .body{flex:1;min-width:0}
   .nm{font-weight:700;font-size:14.5px;margin-bottom:3px;line-height:1.3;word-break:break-word}
   .meta{font-size:11.5px;color:#94a3b8;line-height:1.45}
-  .dist{font-size:12px;color:#38bdf8;font-weight:800;white-space:nowrap;text-align:right}
-  .dist small{display:block;font-size:9.5px;color:#64748b;font-weight:600;margin-top:2px}
+  .dist{text-align:right; display: flex; flex-direction: column; align-items: flex-end; justify-content: center;}
+  .dist-num{font-size:12px;color:#38bdf8;font-weight:800;white-space:nowrap;}
+  
+  /* GO Button Style */
+  .go-btn{display:inline-block; margin-top:5px; background:#0ea5e9; color:#04212e; font-size:10.5px; font-weight:800; padding:4px 8px; border-radius:6px; text-decoration:none;}
+  
   .badge{display:inline-block;background:#facc1520;color:#facc15;border:1px solid #facc1545;font-size:9.5px;padding:1px 6px;border-radius:5px;margin-left:5px;vertical-align:middle;font-weight:700}
   .empty{text-align:center;color:#64748b;padding:60px 24px;font-size:14px;line-height:1.7}
   .spin{width:26px;height:26px;border:3px solid #334155;border-top-color:#38bdf8;border-radius:50%;animation:r .8s linear infinite;margin:0 auto 16px}
@@ -235,19 +239,25 @@ function render(){
   list.innerHTML = items.map((p,i) => {
     const d = p.d < 1000 ? Math.round(p.d) + ' m' : (p.d/1000).toFixed(1) + ' km';
     const addr = [p.tags['addr:street'], p.tags['addr:city']].filter(Boolean).join(', ');
+    
+    // Yahan "Go" button wapas add kar diya gaya hai
     return `<div class="card" data-i="${state.places.indexOf(p)}">
       <div class="ico">${iconFor(p)}</div>
       <div class="body">
         <div class="nm">${esc(p.name)}${p.famous?'<span class="badge">⭐ FAMOUS</span>':''}</div>
         <div class="meta">${esc(typeLabel(p))}${addr ? ' · ' + esc(addr) : ''}</div>
       </div>
-      <div class="dist">${d}<small>➤ Map</small></div>
+      <div class="dist">
+        <div class="dist-num">${d}</div>
+        <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}" target="_blank" class="go-btn" onclick="event.stopPropagation();">➤ Go</a>
+      </div>
     </div>`;
   }).join('');
 
   list.querySelectorAll('.card').forEach(el => {
     el.onclick = () => {
       const p = state.places[+el.dataset.i];
+      // Card par tap karne se Map zoom hoga
       map.setView([p.lat, p.lon], 17); 
       window.scrollTo({ top: 0, behavior: 'smooth' }); 
     };
