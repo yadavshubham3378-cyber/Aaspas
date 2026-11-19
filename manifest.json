@@ -1,0 +1,28 @@
+{
+  "name": "Aas-Paas — Aas Paas Ki Famous Jagah",
+  "short_name": "Aas-Paas",
+  "description": "Aapke aas paas ke famous dukan, hotel, restaurant aur ghoomne ki jagah dhoondein.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "lang": "hi",
+  "dir": "ltr",
+  "categories": ["travel", "navigation", "food"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230ea5e9'/%3E%3Cpath d='M256 96c-70 0-126 56-126 126 0 94 126 194 126 194s126-100 126-194c0-70-56-126-126-126z' fill='%23fff'/%3E%3Ccircle cx='256' cy='222' r='48' fill='%230ea5e9'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230ea5e9'/%3E%3Cpath d='M256 96c-70 0-126 56-126 126 0 94 126 194 126 194s126-100 126-194c0-70-56-126-126-126z' fill='%23fff'/%3E%3Ccircle cx='256' cy='222' r='48' fill='%230ea5e9'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
