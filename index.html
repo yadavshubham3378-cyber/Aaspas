@@ -14,11 +14,14 @@
   body{background:#0f172a;color:#e2e8f0;min-height:100vh;padding-bottom:90px}
   header{position:sticky;top:0;z-index:20;background:rgba(15,23,42,.95);backdrop-filter:blur(10px);padding:14px 16px 12px;border-bottom:1px solid #1e293b}
   
-  /* Header Top (Title + Lang Button) */
+  /* Header Top (Title + Buttons) */
   .header-top{display:flex; justify-content:space-between; align-items:center;}
   h1{font-size:19px;font-weight:800;letter-spacing:-.3px}
   h1 span{color:#38bdf8}
-  .lang-btn{background:#1e293b; color:#38bdf8; border:1px solid #334155; padding:5px 12px; border-radius:20px; font-weight:bold; font-size:12px; cursor:pointer;}
+  
+  .header-actions { display: flex; gap: 8px; }
+  .icon-btn{background:#1e293b; color:#38bdf8; border:1px solid #334155; padding:5px 10px; border-radius:20px; font-weight:bold; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .icon-btn:active { transform: scale(0.95); }
   
   #status{font-size:12.5px;color:#94a3b8;margin-top:8px;line-height:1.4}
   .btn{width:100%;margin-top:11px;padding:14px;border:0;border-radius:14px;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:.15s}
@@ -73,7 +76,10 @@
 <header>
   <div class="header-top">
     <h1>📍 Aas-<span>Paas</span></h1>
-    <button class="lang-btn" id="langBtn">EN</button>
+    <div class="header-actions">
+      <button class="icon-btn" id="shareBtn" title="Share App">📤</button>
+      <button class="icon-btn" id="langBtn">EN</button>
+    </div>
   </div>
   <div id="status" data-i18n="statusInit">Neeche button dabaiye — aapke aas paas ki famous jagah dikhegi</div>
   <button class="btn" id="locBtn" data-i18n="btnLoc">📍 Meri Location Dhoondo</button>
@@ -131,7 +137,9 @@ const i18n = {
     netErr: "❌ Network problem.<br><br>Kripya Internet check karein aur <b>'Dobara Search'</b> dabayein.",
     noResult: "Aapki search se kuch nahi mila.<br>Doosra naam try karein.",
     notFound: "Is area mein koi jagah nahi mili.<br>Kripya 2.5 km ya 5 km select karein.",
-    micErr: "Aapka browser voice search support nahi karta."
+    micErr: "Aapka browser voice search support nahi karta.",
+    shareText: "Bhai yeh app check kar, aas-paas ki dukan aur hotel dhoondhne ke liye mast hai!",
+    shareCopied: "Link copy ho gaya hai!"
   },
   en: {
     statusInit: "Tap the button below to find nearby famous places",
@@ -147,7 +155,9 @@ const i18n = {
     netErr: "❌ Network problem.<br><br>Check internet and tap <b>'Search Again'</b>.",
     noResult: "Nothing found for your search.<br>Try another name.",
     notFound: "No places found in this area.<br>Try 2.5 km or 5 km.",
-    micErr: "Your browser does not support voice search."
+    micErr: "Your browser does not support voice search.",
+    shareText: "Check out this awesome app to find nearby places!",
+    shareCopied: "Link copied to clipboard!"
   }
 };
 
@@ -156,6 +166,27 @@ let map, markersGroup;
 const state = { loc:null, places:[], cat:'all', radius:1000, busy:false, search:'' };
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').textContent = s;
+
+// --- SHARE FUNCTION ---
+$('shareBtn').addEventListener('click', async () => {
+  const shareData = {
+    title: 'Aas-Paas',
+    text: i18n[currentLang]['shareText'],
+    url: window.location.href
+  };
+  
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else {
+      // Fallback: Copy link to clipboard
+      await navigator.clipboard.writeText(window.location.href);
+      alert(i18n[currentLang]['shareCopied']);
+    }
+  } catch (err) {
+    console.log('Error sharing:', err);
+  }
+});
 
 // --- TRANSLATE FUNCTION ---
 function applyLanguage() {
@@ -170,7 +201,6 @@ function applyLanguage() {
   const searchInput = $('searchInput');
   searchInput.placeholder = i18n[currentLang]['searchPh'];
   
-  // Update button text based on state
   if (state.loc) {
      $('locBtn').textContent = i18n[currentLang]['btnLocAgain'];
   } else {
