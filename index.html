@@ -136,9 +136,9 @@ const i18n = {
     emptyList: "👆 Upar wala button dabaiye<br>Phir yahan list aayegi",
     loading: "Data la rahe hain...", searching: "km ke andar search ho raha hai...",
     locFinding: "📡 Location dhoond rahe hain...", locErr: "❌ Location nahi mili. GPS on karein.",
-    netErr: "❌ Server busy.<br><br>Kripya 2.5 km select karein ya thodi der baad try karein.",
+    netErr: "❌ Server thoda busy hai.<br><br>Kripya internet check karein ya thodi der baad <b>'Search Again'</b> dabayein.",
     noResult: "Aapki search se kuch nahi mila.<br>Doosra naam try karein.",
-    notFound: "Is area mein koi jagah nahi mili.<br>Kripya 2.5 km select karein.",
+    notFound: "Is area mein koi jagah nahi mili.<br>Kripya 2.5 km ya 5 km select karein.",
     noFav: "Aapne abhi tak koi jagah save nahi ki hai.<br>Kisi bhi card par ⭐ dabakar save karein.",
     micErr: "Aapka browser voice search support nahi karta.",
     shareText: "Bhai yeh app check kar, aas-paas ki dukan aur hotel dhoondhne ke liye mast hai!", shareCopied: "Link copy ho gaya hai!"
@@ -151,9 +151,9 @@ const i18n = {
     emptyList: "👆 Tap the button above<br>to see places here",
     loading: "Fetching data...", searching: "km area searched...",
     locFinding: "📡 Finding your location...", locErr: "❌ Location not found. Turn on GPS.",
-    netErr: "❌ Server busy.<br><br>Try 2.5 km or try again in a moment.",
+    netErr: "❌ Server is a bit busy.<br><br>Check internet or tap <b>'Search Again'</b> after a moment.",
     noResult: "Nothing found for your search.<br>Try another name.",
-    notFound: "No places found.<br>Try 2.5 km.",
+    notFound: "No places found in this area.<br>Try 2.5 km or 5 km.",
     noFav: "You haven't saved any places yet.<br>Tap ⭐ on any card to save.",
     micErr: "Your browser does not support voice search.",
     shareText: "Check out this awesome app to find nearby places!", shareCopied: "Link copied to clipboard!"
@@ -266,25 +266,29 @@ function buildQuery(lat, lon, r){
     A('"historic"'),
     A('"leisure"="park"')
   ];
-  // Fast query: Reduced to 30 results, 5s timeout
-  return `[out:json][timeout:5];(${parts.join('')});out body 30;`;
+  return `[out:json][timeout:15];(${parts.join('')});out body 30;`; // 30 results, 15s timeout
 }
 
+// Naye aur Zyada Servers add kiye hain
 async function getData(q){
   const servers = [
-    'https://overpass.kumi.systems/api/interpreter?data=',
-    'https://overpass-api.de/api/interpreter?data='
+    'https://overpass.osm.ch/api/interpreter?data=',        // Switzerland (Very Fast)
+    'https://overpass.kumi.systems/api/interpreter?data=',   // Germany
+    'https://overpass.nchc.org.tw/api/interpreter?data=',    // Taiwan
+    'https://overpass-api.de/api/interpreter?data='          // Main
   ];
+  
   for(let server of servers){
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 6000); // Only wait 6 seconds max
+      const timer = setTimeout(() => ctrl.abort(), 8000); // 8 second wait per server
       let res = await fetch(server + encodeURIComponent(q), { signal: ctrl.signal });
       clearTimeout(timer);
       if(res.ok) return await res.json();
     } catch(e) {}
   }
-  // Fallback Proxy
+  
+  // Agar sab direct fail ho jayein toh proxy try karein
   try { 
     let proxy = 'https://api.allorigins.win/raw?url='; 
     let res = await fetch(proxy + encodeURIComponent('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q))); 
@@ -294,7 +298,6 @@ async function getData(q){
   throw new Error("Server busy");
 }
 
-// Fast Caching System
 async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true; $('locBtn').disabled = true;
@@ -302,14 +305,13 @@ async function loadPlaces(){
   const cacheKey = `cache_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
   const cachedData = localStorage.getItem(cacheKey);
 
-  // Agar pehle se data saved hai, toh turant dikhao
   if (cachedData) {
     state.places = JSON.parse(cachedData);
     setStatus(`✅ Saved Data · ${(state.radius/1000)} km`);
     initMap(state.loc.lat, state.loc.lon);
     render();
     state.busy = false; $('locBtn').disabled = false;
-    return; // Background mein fetch mat karo agar pehle se hai
+    return; 
   }
 
   $('list').innerHTML = `<div class="empty"><div class="spin"></div>${i18n[currentLang]['loading']}</div>`;
@@ -329,7 +331,6 @@ async function loadPlaces(){
     places.sort((a,b) => (a.d - (a.famous?1000:0)) - (b.d - (b.famous?1000:0)));
     state.places = places;
     
-    // Save data for future
     localStorage.setItem(cacheKey, JSON.stringify(places));
 
     if(places.length === 0) {
@@ -356,7 +357,6 @@ function render(){
   if (state.loc && map) {
     markersGroup.clearLayers();
     L.circleMarker([state.loc.lat, state.loc.lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("You are here");
-    // Only 15 markers for speed
     items.slice(0, 15).forEach(p => { L.circleMarker([p.lat, p.lon], {color: '#facc15', radius: 6, fillOpacity: 0.8}).addTo(markersGroup).bindPopup(p.name); });
   }
   
@@ -429,4 +429,4 @@ applyLanguage();
 if ('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 </script>
 </body>
- </html>
+</html>
