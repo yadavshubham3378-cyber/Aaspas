@@ -91,6 +91,7 @@
   <button class="mic-btn" id="micBtn">🎤</button>
 </div>
 
+<!-- Buttons Fix Kiye Gaye Hain -->
 <div class="chips" id="chips">
   <div class="chip on" data-f="all" data-i18n="catAll">🎯 Sab Kuch</div>
   <div class="chip" data-f="fav" data-i18n="catFav">⭐ Saved</div>
@@ -101,10 +102,10 @@
 </div>
 
 <div class="radius" id="radius">
-  <button data-r="1000" class="on">1 km</button>
-  <button data-r="2500">2.5 km</button>
+  <button data-r="1000">1 km</button>
+  <button data-r="2500" class="on">2.5 km</button>
   <button data-r="5000">5 km</button>
-  <div class="chip" data-f="ghumna" data-i18n="catTour">📸 Ghoomna</div>
+  <button data-r="10000">10 km</button>
 </div>
 
 <div id="map-container">
@@ -158,7 +159,7 @@ const i18n = {
 
 let currentLang = localStorage.getItem('ap_lang') || 'hi';
 let map, markersGroup;
-const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' }; // Default 2.5km kar diya
+const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' };
 let favorites = JSON.parse(localStorage.getItem('ap_favs') || '[]');
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').textContent = s;
@@ -242,13 +243,12 @@ function typeLabel(p){
   return 'Place';
 }
 
-// FIX: nwr (Node, Way, Relation) ka use kiya hai taaki buildings bhi mil sakein
 function buildQuery(lat, lon, r){
   const A = q => `nwr[${q}](around:${r},${lat},${lon});`;
   const parts = [
     A('"amenity"~"^(restaurant|cafe|fast_food|food_court)$"'),
     A('"tourism"~"^(hotel|guest_house|hostel|motel)$"'),
-    A('"shop"'), // Ab har tarah ki dukan dhoondhega
+    A('"shop"'), 
     A('"amenity"="marketplace"'),
     A('"tourism"~"^(attraction|museum|viewpoint|gallery)$"'),
     A('"historic"'),
@@ -257,26 +257,19 @@ function buildQuery(lat, lon, r){
   return `[out:json][timeout:15];(${parts.join('')});out center 100;`; 
 }
 
+// Naya Codetabs Proxy (Jo mobile network par block nahi hota)
 async function getData(q){
-  const servers = [
-    'https://overpass-api.de/api/interpreter?data=',
-    'https://overpass.kumi.systems/api/interpreter?data=',
-    'https://overpass.osm.ch/api/interpreter?data='
-  ];
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    let res = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q)), { signal: ctrl.signal });
+    clearTimeout(timer);
+    if(res.ok) return await res.json();
+  } catch(e) {}
   
-  for(let server of servers){
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 10000);
-      let res = await fetch(server + encodeURIComponent(q), { signal: ctrl.signal });
-      clearTimeout(timer);
-      if(res.ok) return await res.json();
-    } catch(e) {}
-  }
-  
+  // Agar Codetabs fail ho toh Kumi try karein
   try { 
-    let proxy = 'https://corsproxy.io/?'; 
-    let res = await fetch(proxy + encodeURIComponent('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q))); 
+    let res = await fetch('https://overpass.kumi.systems/api/interpreter?data=' + encodeURIComponent(q)); 
     if(res.ok) return await res.json(); 
   } catch(e2) {}
   
@@ -287,13 +280,12 @@ async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true; $('locBtn').disabled = true;
   
-  // Naya Cache version taaki purana khali data clear ho jaye
-  const cacheKey = `cache_v5_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
+  const cacheKey = `cache_v6_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
   const cachedData = localStorage.getItem(cacheKey);
 
   if (cachedData) {
     let p = JSON.parse(cachedData);
-    if(p.length > 0) { // Sirf tab dikhao jab data ho
+    if(p.length > 0) { 
       state.places = p;
       setStatus(`✅ Saved Data · ${(state.radius/1000)} km`);
       initMap(state.loc.lat, state.loc.lon);
@@ -311,11 +303,10 @@ async function loadPlaces(){
     const data = await getData(buildQuery(state.loc.lat, state.loc.lon, state.radius));
     const seen = new Set();
     
-    // Way (building) ka center nikalne ka logic
     let places = (data.elements || []).filter(e => e.tags && e.tags.name).map(e => {
         let lat = e.lat || (e.center && e.center.lat);
         let lon = e.lon || (e.center && e.center.lon);
-        if(!lat || !lon) return null; // Agar location nahi mili toh skip karo
+        if(!lat || !lon) return null; 
         
         const d = dist(state.loc.lat, state.loc.lon, lat, lon);
         return { id: e.id, name: e.tags.name, tags: e.tags, lat: lat, lon: lon, d: d, cat: categorize(e.tags), famous: !!(e.tags.wikidata || e.tags.wikipedia || e.tags.stars || e.tags.heritage) };
@@ -328,7 +319,6 @@ async function loadPlaces(){
     places.sort((a,b) => (a.d - (a.famous?1000:0)) - (b.d - (b.famous?1000:0)));
     state.places = places;
     
-    // Agar data mila tabhi save karo
     if(places.length > 0) {
       localStorage.setItem(cacheKey, JSON.stringify(places));
     }
