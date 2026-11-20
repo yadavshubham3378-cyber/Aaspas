@@ -80,8 +80,8 @@
 </div>
 
 <div class="radius" id="radius">
-  <button data-r="1000">1 km</button>
-  <button data-r="2500" class="on">2.5 km</button>
+  <button data-r="1000" class="on">1 km</button>
+  <button data-r="2500">2.5 km</button>
   <button data-r="5000">5 km</button>
   <button data-r="10000">10 km</button>
 </div>
@@ -97,22 +97,21 @@
 </div>
 
 <script>
-// 👇 SIRF YAHAN APNI API KEY DAALEIN 👇
+// 👇 YAHAN APNI API KEY DAALEIN 👇
 const GEOAPIFY_API_KEY = '2ab5dd8b9f444593bcb58fc3ee091563';
-// 👆 YAHAN TAK 👆
 
 let map, markersGroup;
-const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' }; 
+const state = { loc:null, places:[], cat:'all', radius:1000, busy:false, search:'' }; // Default 1km
 let favorites = JSON.parse(localStorage.getItem('ap_favs') || '[]');
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').innerHTML = s;
 
 function initMap(lat, lon) {
   if (!map) {
-    map = L.map('map').setView([lat, lon], 14);
+    map = L.map('map').setView([lat, lon], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
     markersGroup = L.layerGroup().addTo(map);
-  } else { map.setView([lat, lon], 14); }
+  } else { map.setView([lat, lon], 15); }
   $('map-container').style.display = 'block'; markersGroup.clearLayers();
   L.circleMarker([lat, lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("You are here");
 }
@@ -143,7 +142,8 @@ function typeLabel(p){
 }
 
 function buildGeoapifyUrl(lat, lon, r) {
-  const categories = 'catering.restaurant,catering.cafe,catering.fast_food,commercial.supermarket,commercial.shopping_mall,accommodation.hotel,accommodation.guest_house,tourism.attraction,leisure.park';
+  // Thoda broad categories taaki 1km mein bhi kuch mil jaye (kirana, general store, etc)
+  const categories = 'catering,catering.restaurant,catering.cafe,commercial,commercial.supermarket,commercial.convenience,accommodation.hotel,accommodation.guest_house,tourism.attraction,leisure.park';
   return `https://api.geoapify.com/v2/places?categories=${categories}&filter=circle:${lon},${lat},${r}&limit=50&apiKey=${GEOAPIFY_API_KEY}`;
 }
 
@@ -178,14 +178,14 @@ async function loadPlaces(){
     state.places = places;
 
     if(places.length === 0) {
-      $('list').innerHTML = `<div class="empty">Is area mein kuch nahi mila.<br>Kripya 5 km select karein.</div>`; 
+      $('list').innerHTML = `<div class="empty">1km ke andar kuch nahi mila.<br>Kripya 2.5 km select karein.</div>`; 
       setStatus('❌ 0');
     } else {
       setStatus(`✅ ${places.length} jagah mili`); 
       render();
     }
   }catch(err){
-    $('list').innerHTML = `<div class="empty">❌ API Key galat hai ya limit khatam.<br><br>Kripya API key check karein.</div>`; 
+    $('list').innerHTML = `<div class="empty">❌ API Key galat hai ya limit khatam.</div>`; 
     setStatus('❌ Error');
   }finally{ 
     state.busy = false; $('locBtn').disabled = false; 
