@@ -61,33 +61,33 @@
       <button class="icon-btn" id="langBtn">EN</button>
     </div>
   </div>
-  <div id="status" data-i18n="statusInit">Neeche button dabaiye — aapke aas paas ki famous jagah dikhegi</div>
-  <button class="btn" id="locBtn" data-i18n="btnLoc">📍 Meri Location Dhoondo</button>
+  <div id="status">Neeche button dabaiye</div>
+  <button class="btn" id="locBtn">📍 Meri Location Dhoondo</button>
 </header>
 
 <div class="search-container">
-  <input type="text" id="searchInput" placeholder="🔍 Dukan, hotel ya jagah ka naam likhein..." data-i18n-ph="searchPh">
+  <input type="text" id="searchInput" placeholder="🔍 Naam likhein...">
   <button class="mic-btn" id="micBtn">🎤</button>
 </div>
 
 <div class="chips" id="chips">
-  <div class="chip on" data-f="all" data-i18n="catAll">🎯 Sab Kuch</div>
-  <div class="chip" data-f="fav" data-i18n="catFav">⭐ Saved</div>
-  <div class="chip" data-f="khana" data-i18n="catFood">🍽️ Khana</div>
-  <div class="chip" data-f="shopping" data-i18n="catShop">🛍️ Shopping</div>
-  <div class="chip" data-f="hotel" data-i18n="catHotel">🏨 Hotel</div>
-  <div class="chip" data-f="ghumna" data-i18n="catTour">📸 Ghoomna</div>
+  <div class="chip on" data-f="all">🎯 Sab Kuch</div>
+  <div class="chip" data-f="fav">⭐ Saved</div>
+  <div class="chip" data-f="khana">🍽️ Khana</div>
+  <div class="chip" data-f="shopping">🛍️ Shopping</div>
+  <div class="chip" data-f="hotel">🏨 Hotel</div>
+  <div class="chip" data-f="ghumna">📸 Ghoomna</div>
 </div>
 
 <div class="radius" id="radius">
   <button data-r="1000">1 km</button>
-  <button data-r="2500">2.5 km</button>
+  <button data-r="2500" class="on">2.5 km</button>
   <button data-r="5000">5 km</button>
-  <button data-r="10000" class="on">10 km</button>
+  <button data-r="10000">10 km</button>
 </div>
 
 <div id="map-container"><div id="map"></div></div>
-<div id="list"><div class="empty" data-i18n="emptyList">👆 Upar wala button dabaiye<br>Phir yahan list aayegi</div></div>
+<div id="list"><div class="empty">👆 Upar wala button dabaiye</div></div>
 
 <div class="contact-wrapper">
   <a href="https://www.instagram.com/neetprayag/" target="_blank" class="contact-btn">
@@ -97,46 +97,18 @@
 </div>
 
 <script>
-const i18n = {
-  hi: { statusInit: "Neeche button dabaiye", btnLoc: "📍 Meri Location Dhoondo", btnLocAgain: "🔄 Dobara Search Karein", searchPh: "🔍 Naam likhein...", catAll: "🎯 Sab", catFav: "⭐ Saved", catFood: "🍽️ Khana", catShop: "🛍️ Shopping", catHotel: "🏨 Hotel", catTour: "📸 Ghoomna", emptyList: "👆 Button dabaiye", loading: "Data la rahe hain...", searching: "km ke andar...", locFinding: "📡 Location...", locErr: "❌ Location nahi mili.", netErr: "❌ Server busy.<br>10km try karein.", noResult: "Kuch nahi mila.", notFound: "Is area mein kuch nahi mila.", noFav: "Kuch save nahi hai.", micErr: "Voice support nahi.", shareText: "App check karein!", shareCopied: "Copy ho gaya!" },
-  en: { statusInit: "Tap below", btnLoc: "📍 Find My Location", btnLocAgain: "🔄 Search Again", searchPh: "🔍 Type name...", catAll: "🎯 All", catFav: "⭐ Saved", catFood: "🍽️ Food", catShop: "🛍️ Shopping", catHotel: "🏨 Hotel", catTour: "📸 Sightseeing", emptyList: "👆 Tap button", loading: "Fetching...", searching: "km area...", locFinding: "📡 Location...", locErr: "❌ Not found.", netErr: "❌ Server busy.<br>Try 10km.", noResult: "Nothing found.", notFound: "No places found.", noFav: "No saved places.", micErr: "No voice support.", shareText: "Check app!", shareCopied: "Copied!" }
-};
-
-let currentLang = localStorage.getItem('ap_lang') || 'hi';
 let map, markersGroup;
-const state = { loc:null, places:[], cat:'all', radius:10000, busy:false, search:'' }; 
+const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' }; 
 let favorites = JSON.parse(localStorage.getItem('ap_favs') || '[]');
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').innerHTML = s;
 
-$('shareBtn').addEventListener('click', async () => { try { if (navigator.share) { await navigator.share({ title: 'Aas-Paas', text: i18n[currentLang]['shareText'], url: window.location.href }); } else { await navigator.clipboard.writeText(window.location.href); alert(i18n[currentLang]['shareCopied']); } } catch (err) {} });
-
-function applyLanguage() {
-  document.documentElement.lang = currentLang;
-  $('langBtn').textContent = currentLang === 'hi' ? 'EN' : 'HI';
-  document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if (i18n[currentLang][key]) el.innerHTML = i18n[currentLang][key]; });
-  $('searchInput').placeholder = i18n[currentLang]['searchPh'];
-  if (state.loc) { $('locBtn').textContent = i18n[currentLang]['btnLocAgain']; } else { $('locBtn').textContent = i18n[currentLang]['btnLoc']; }
-}
-
-$('langBtn').addEventListener('click', () => { currentLang = currentLang === 'hi' ? 'en' : 'hi'; localStorage.setItem('ap_lang', currentLang); applyLanguage(); });
-
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition = null;
-if (SpeechRecognition) {
-  recognition = new SpeechRecognition();
-  recognition.onstart = () => { $('searchInput').placeholder = currentLang === 'hi' ? 'Sun rahe hain...' : 'Listening...'; };
-  recognition.onresult = (event) => { $('searchInput').value = event.results[0][0].transcript; state.search = event.results[0][0].transcript.toLowerCase().trim(); render(); };
-  recognition.onend = () => { $('searchInput').placeholder = i18n[currentLang]['searchPh']; };
-}
-$('micBtn').addEventListener('click', () => { if (recognition) { recognition.lang = currentLang === 'hi' ? 'hi-IN' : 'en-IN'; try { recognition.start(); } catch(e) {} } else { alert(i18n[currentLang]['micErr']); } });
-
 function initMap(lat, lon) {
   if (!map) {
-    map = L.map('map').setView([lat, lon], 13);
+    map = L.map('map').setView([lat, lon], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
     markersGroup = L.layerGroup().addTo(map);
-  } else { map.setView([lat, lon], 13); }
+  } else { map.setView([lat, lon], 14); }
   $('map-container').style.display = 'block'; markersGroup.clearLayers();
   L.circleMarker([lat, lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("You are here");
 }
@@ -162,7 +134,7 @@ function iconFor(p){
 
 function typeLabel(p){
   const t = p.tags;
-  const mapObj = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', food_court:'Food Court', hotel:'Hotel', guest_house:'Guest House', hostel:'Hostel', motel:'Motel', attraction:'Attraction', museum:'Museum', viewpoint:'Viewpoint', artwork:'Artwork', gallery:'Gallery', park:'Park', marketplace:'Market' };
+  const mapObj = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', hotel:'Hotel', attraction:'Attraction', park:'Park' };
   let v = mapObj[t.amenity] || mapObj[t.tourism] || mapObj[t.leisure] || null;
   if (v) return v;
   if (t.shop) return t.shop.charAt(0).toUpperCase()+t.shop.slice(1)+' Shop';
@@ -170,7 +142,6 @@ function typeLabel(p){
   return 'Place';
 }
 
-// SMART QUERY: Sirf zaroori cheezein, taaki server crash na ho
 function buildQuery(lat, lon, r){
   const A = q => `node[${q}](around:${r},${lat},${lon});`;
   const parts = [
@@ -180,60 +151,65 @@ function buildQuery(lat, lon, r){
     A('"historic"'),
     A('"leisure"="park"')
   ];
-  return `[out:json][timeout:10];(${parts.join('')});out center 50;`; 
+  return `[out:json][timeout:15];(${parts.join('')});out center 50;`; 
+}
+
+async function fetchData(q) {
+  const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q) + '&t=' + Date.now();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000); 
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error("Server Error");
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error; 
+  }
 }
 
 async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true; $('locBtn').disabled = true;
   
-  // Cache clear version v10
-  const cacheKey = `cache_v10_${state.loc.lat.toFixed(2)}_${state.loc.lon.toFixed(2)}_${state.radius}`;
-  const cachedData = localStorage.getItem(cacheKey);
-
-  if (cachedData) {
-    let p = JSON.parse(cachedData);
-    if(p.length > 0) { 
-      state.places = p; setStatus(`✅ Saved · ${(state.radius/1000)} km`); initMap(state.loc.lat, state.loc.lon); render(); state.busy = false; $('locBtn').disabled = false; return; 
-    }
-  }
-
-  $('list').innerHTML = `<div class="empty"><div class="spin"></div>${i18n[currentLang]['loading']}</div>`;
-  setStatus('🔎 ' + (state.radius/1000) + ' ' + i18n[currentLang]['searching']);
+  $('list').innerHTML = `<div class="empty"><div class="spin"></div>Data la rahe hain...</div>`;
+  setStatus('🔎 ' + (state.radius/1000) + ' km ke andar...');
   initMap(state.loc.lat, state.loc.lon);
   
   try{
     const q = buildQuery(state.loc.lat, state.loc.lon, state.radius);
-    let res = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q) + '&t=' + Date.now()); // Bypass cache
-    if(!res.ok) res = await fetch('https://overpass.kumi.systems/api/interpreter?data=' + encodeURIComponent(q) + '&t=' + Date.now());
-    if(!res.ok) throw new Error("Failed");
+    const data = await fetchData(q); 
     
-    const data = await res.json();
     const seen = new Set();
     let places = (data.elements || []).filter(e => e.tags && e.tags.name).map(e => {
         let lat = e.lat || (e.center && e.center.lat);
         let lon = e.lon || (e.center && e.center.lon);
         if(!lat || !lon) return null; 
         const d = dist(state.loc.lat, state.loc.lon, lat, lon);
-        return { id: e.id, name: e.tags.name, tags: e.tags, lat: lat, lon: lon, d: d, cat: categorize(e.tags), famous: !!(e.tags.wikidata || e.tags.wikipedia || e.tags.stars || e.tags.heritage) };
+        return { id: e.id, name: e.tags.name, tags: e.tags, lat: lat, lon: lon, d: d, cat: categorize(e.tags) };
       }).filter(p => {
         if (!p) return false;
         const k = p.name.toLowerCase().trim();
         if (seen.has(k)) return false; seen.add(k); return true;
       });
-    places.sort((a,b) => (a.d - (a.famous?1000:0)) - (b.d - (b.famous?1000:0)));
+    places.sort((a,b) => a.d - b.d);
     state.places = places;
-    
-    if(places.length > 0) localStorage.setItem(cacheKey, JSON.stringify(places));
 
     if(places.length === 0) {
-      $('list').innerHTML = `<div class="empty">${i18n[currentLang]['notFound']}</div>`; setStatus('❌ 0');
+      $('list').innerHTML = `<div class="empty">Is area mein kuch nahi mila.<br>Kripya 5 km ya 10 km select karein.</div>`; 
+      setStatus('❌ 0');
     } else {
-      setStatus(`✅ ${places.length} jagah mili`); render();
+      setStatus(`✅ ${places.length} jagah mili`); 
+      render();
     }
   }catch(err){
-    $('list').innerHTML = `<div class="empty">${i18n[currentLang]['netErr']}</div>`; setStatus('❌ Error');
-  }finally{ state.busy = false; $('locBtn').disabled = false; }
+    $('list').innerHTML = `<div class="empty">❌ Server ne jawab nahi diya.<br><br>Kripya 5km select karein ya thodi der baad try karein.</div>`; 
+    setStatus('❌ Timeout');
+  }finally{ 
+    state.busy = false; $('locBtn').disabled = false; 
+  }
 }
 
 function render(){
@@ -248,7 +224,7 @@ function render(){
     items.slice(0, 15).forEach(p => { L.circleMarker([p.lat, p.lon], {color: '#facc15', radius: 6, fillOpacity: 0.8}).addTo(markersGroup).bindPopup(p.name); });
   }
   
-  if (!items.length){ list.innerHTML = `<div class="empty">${i18n[currentLang]['noResult']}</div>`; return; }
+  if (!items.length){ list.innerHTML = `<div class="empty">Kuch nahi mila.</div>`; return; }
   
   list.innerHTML = items.map((p,i) => {
     const d = p.d < 1000 ? Math.round(p.d) + ' m' : (p.d/1000).toFixed(1) + ' km';
@@ -256,7 +232,7 @@ function render(){
     return `<div class="card" data-i="${state.places.indexOf(p)}">
       <button class="fav-btn ${isFav}" onclick="toggleFav(event, ${p.id})">${isFav?'⭐':'☆'}</button>
       <div class="ico">${iconFor(p)}</div>
-      <div class="body"><div class="nm">${esc(p.name)}${p.famous?'<span class="badge">⭐</span>':''}</div><div class="meta">${esc(typeLabel(p))}</div></div>
+      <div class="body"><div class="nm">${esc(p.name)}</div><div class="meta">${esc(typeLabel(p))}</div></div>
       <div class="dist"><div class="dist-num">${d}</div><a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}" target="_blank" class="go-btn" onclick="event.stopPropagation();">➤ Go</a></div>
     </div>`;
   }).join('');
@@ -277,8 +253,7 @@ function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt
 $('searchInput').addEventListener('input', e => { state.search = e.target.value.toLowerCase().trim(); render(); });
 $('chips').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; document.querySelectorAll('.chip').forEach(x => x.classList.remove('on')); c.classList.add('on'); state.cat = c.dataset.f; render(); });
 $('radius').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#radius button').forEach(x => x.classList.remove('on')); b.classList.add('on'); state.radius = +b.dataset.r; if (state.loc) loadPlaces(); });
-$('locBtn').onclick = () => { setStatus(i18n[currentLang]['locFinding']); $('locBtn').disabled = true; navigator.geolocation.getCurrentPosition(pos => { state.loc = { lat: pos.coords.latitude, lon: pos.coords.longitude }; $('locBtn').disabled = false; $('locBtn').textContent = i18n[currentLang]['btnLocAgain']; loadPlaces(); }, err => { $('locBtn').disabled = false; setStatus(i18n[currentLang]['locErr']); }); };
-applyLanguage();
+$('locBtn').onclick = () => { setStatus('📡 Location dhoond rahe hain...'); $('locBtn').disabled = true; navigator.geolocation.getCurrentPosition(pos => { state.loc = { lat: pos.coords.latitude, lon: pos.coords.longitude }; $('locBtn').disabled = false; $('locBtn').textContent = '🔄 Search Again'; loadPlaces(); }, err => { $('locBtn').disabled = false; setStatus('❌ Location nahi mili'); }); };
 </script>
 </body>
 </html>
