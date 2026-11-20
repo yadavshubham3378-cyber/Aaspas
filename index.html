@@ -143,31 +143,42 @@ function typeLabel(p){
 }
 
 function buildQuery(lat, lon, r){
-  const A = q => `node[${q}](around:${r},${lat},${lon});`;
+  const A = q => `nwr[${q}](around:${r},${lat},${lon});`;
   const parts = [
     A('"amenity"~"^(restaurant|cafe|fast_food)$"'),
-    A('"tourism"~"^(hotel|guest_house)$"'),
-    A('"shop"~"^(supermarket|mall|convenience)$"'), 
-    A('"historic"'),
+    A('"tourism"~"^(hotel|guest_house|attraction)$"'),
+    A('"shop"~"^(supermarket|mall|convenience|clothes)$"'), 
     A('"leisure"="park"')
   ];
-  return `[out:json][timeout:15];(${parts.join('')});out center 50;`; 
+  return `[out:json][timeout:15];(${parts.join('')});out center 100;`; 
 }
 
+// POST Request (Jo mobile network block nahi karte)
 async function fetchData(q) {
-  const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q) + '&t=' + Date.now();
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000); 
+  const servers = [
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter'
+  ];
 
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!response.ok) throw new Error("Server Error");
-    return await response.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error; 
+  for (let server of servers) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); 
+      
+      const response = await fetch(server, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(q),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      if (response.ok) return await response.json();
+    } catch (error) {
+      // Agar ek server fail ho toh dusra try karo
+    }
   }
+  throw new Error("Server Error");
 }
 
 async function loadPlaces(){
@@ -198,7 +209,7 @@ async function loadPlaces(){
     state.places = places;
 
     if(places.length === 0) {
-      $('list').innerHTML = `<div class="empty">Is area mein kuch nahi mila.<br>Kripya 5 km ya 10 km select karein.</div>`; 
+      $('list').innerHTML = `<div class="empty">Is area mein kuch nahi mila.<br>Kripya 5 km select karein.</div>`; 
       setStatus('❌ 0');
     } else {
       setStatus(`✅ ${places.length} jagah mili`); 
