@@ -40,6 +40,7 @@
   .chips::-webkit-scrollbar{display:none}
   .chip{white-space:nowrap;padding:9px 16px;border-radius:999px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
   .chip.on{background:#0ea5e9;border-color:#0ea5e9;color:#04212e}
+  
   .radius{display:flex;gap:8px;padding:10px 16px 2px}
   .radius button{flex:1;padding:8px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:12.5px;font-weight:600;cursor:pointer}
   .radius button.on{background:#38bdf8;border-color:#38bdf8;color:#04212e}
@@ -103,8 +104,8 @@
 <div class="radius" id="radius">
   <button data-r="1000">1 km</button>
   <button data-r="2500">2.5 km</button>
-  <button data-r="5000" class="on">5 km</button>
-  <button data-r="10000">10 km</button>
+  <button data-r="5000">5 km</button>
+  <button data-r="10000" class="on">10 km</button>
 </div>
 
 <div id="map-container">
@@ -132,9 +133,9 @@ const i18n = {
     emptyList: "👆 Upar wala button dabaiye<br>Phir yahan list aayegi",
     loading: "Data la rahe hain...", searching: "km ke andar search ho raha hai...",
     locFinding: "📡 Location dhoond rahe hain...", locErr: "❌ Location nahi mili. GPS on karein.",
-    netErr: "❌ Server busy.<br><br>Kripya 5 km select karein ya thodi der baad <b>'Search Again'</b> dabayein.",
+    netErr: "❌ Sabhi servers busy hain.<br><br>Kripya 5 km select karein ya thodi der baad <b>'Search Again'</b> dabayein.",
     noResult: "Aapki search se kuch nahi mila.<br>Doosra naam try karein.",
-    notFound: "Is area mein koi jagah nahi mili.<br>Kripya 5 km ya 10 km select karein.",
+    notFound: "Is area mein koi jagah nahi mili.<br>Kripya 10 km select karein.",
     noFav: "Aapne abhi tak koi jagah save nahi ki hai.<br>Kisi bhi card par ⭐ dabakar save karein.",
     micErr: "Aapka browser voice search support nahi karta.",
     shareText: "Bhai yeh app check kar, aas-paas ki dukan aur hotel dhoondhne ke liye mast hai!", shareCopied: "Link copy ho gaya hai!"
@@ -147,9 +148,9 @@ const i18n = {
     emptyList: "👆 Tap the button above<br>to see places here",
     loading: "Fetching data...", searching: "km area searched...",
     locFinding: "📡 Finding your location...", locErr: "❌ Location not found. Turn on GPS.",
-    netErr: "❌ Server busy.<br><br>Try 5 km or try again in a moment.",
+    netErr: "❌ All servers busy.<br><br>Try 5 km or try again in a moment.",
     noResult: "Nothing found for your search.<br>Try another name.",
-    notFound: "No places found.<br>Try 5 km or 10 km.",
+    notFound: "No places found.<br>Try 10 km.",
     noFav: "You haven't saved any places yet.<br>Tap ⭐ on any card to save.",
     micErr: "Your browser does not support voice search.",
     shareText: "Check out this awesome app to find nearby places!", shareCopied: "Link copied to clipboard!"
@@ -158,10 +159,10 @@ const i18n = {
 
 let currentLang = localStorage.getItem('ap_lang') || 'hi';
 let map, markersGroup;
-const state = { loc:null, places:[], cat:'all', radius:5000, busy:false, search:'' }; // Default 5km
+const state = { loc:null, places:[], cat:'all', radius:10000, busy:false, search:'' }; 
 let favorites = JSON.parse(localStorage.getItem('ap_favs') || '[]');
 const $ = id => document.getElementById(id);
-const setStatus = s => $('status').textContent = s;
+const setStatus = s => $('status').innerHTML = s;
 
 $('shareBtn').addEventListener('click', async () => {
   const shareData = { title: 'Aas-Paas', text: i18n[currentLang]['shareText'], url: window.location.href };
@@ -201,10 +202,10 @@ $('micBtn').addEventListener('click', () => {
 
 function initMap(lat, lon) {
   if (!map) {
-    map = L.map('map').setView([lat, lon], 14);
+    map = L.map('map').setView([lat, lon], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
     markersGroup = L.layerGroup().addTo(map);
-  } else { map.setView([lat, lon], 14); }
+  } else { map.setView([lat, lon], 13); }
   $('map-container').style.display = 'block'; markersGroup.clearLayers();
   L.circleMarker([lat, lon], {color: '#38bdf8', radius: 8, fillOpacity: 1}).addTo(markersGroup).bindPopup("You are here");
 }
@@ -253,31 +254,63 @@ function buildQuery(lat, lon, r){
     A('"historic"'),
     A('"leisure"="park"')
   ];
-  return `[out:json][timeout:15];(${parts.join('')});out center 150;`; 
+  return `[out:json][timeout:25];(${parts.join('')});out center 200;`; 
 }
 
+// 7 Servers aur 3 Proxies ka Network
 async function getData(q){
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000);
-    let res = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q)), { signal: ctrl.signal });
-    clearTimeout(timer);
-    if(res.ok) return await res.json();
-  } catch(e) {}
+  const servers = [
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter?data=', // 1. Russia (Fast in India)
+    'https://overpass-api.de/api/interpreter?data=',                 // 2. Germany Main
+    'https://overpass.kumi.systems/api/interpreter?data=',           // 3. Germany Kumi
+    'https://overpass.osm.ch/api/interpreter?data=',                 // 4. Switzerland
+    'https://overpass.osm.jp/api/interpreter?data=',                 // 5. Japan
+    'https://overpass.private.coffee/api/interpreter?data=',         // 6. Private Coffee
+    'https://overpass.nchc.org.tw/api/interpreter?data='             // 7. Taiwan
+  ];
+
+  const proxies = [
+    'https://api.codetabs.com/v1/proxy?quest=',
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url='
+  ];
+
+  let count = 1;
+
+  // Pehle direct servers try karein
+  for(let server of servers){
+    try {
+      setStatus(`⏳ Data la rahe hain (Server ${count}/${servers.length + proxies.length})...`);
+      count++;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000); // 8 sec timeout
+      let res = await fetch(server + encodeURIComponent(q), { signal: ctrl.signal });
+      clearTimeout(timer);
+      if(res.ok) return await res.json();
+    } catch(e) {}
+  }
+
+  // Agar direct fail ho, toh proxy try karein
+  for(let proxy of proxies){
+    try {
+      setStatus(`⏳ Data la rahe hain (Proxy ${count}/${servers.length + proxies.length})...`);
+      count++;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      let res = await fetch(proxy + encodeURIComponent('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q)), { signal: ctrl.signal });
+      clearTimeout(timer);
+      if(res.ok) return await res.json();
+    } catch(e) {}
+  }
   
-  try { 
-    let res = await fetch('https://overpass.kumi.systems/api/interpreter?data=' + encodeURIComponent(q)); 
-    if(res.ok) return await res.json(); 
-  } catch(e2) {}
-  
-  throw new Error("Server busy");
+  throw new Error("All servers failed");
 }
 
 async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true; $('locBtn').disabled = true;
   
-  const cacheKey = `cache_v7_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
+  const cacheKey = `cache_v9_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
   const cachedData = localStorage.getItem(cacheKey);
 
   if (cachedData) {
@@ -323,10 +356,11 @@ async function loadPlaces(){
     if(places.length === 0) {
       $('list').innerHTML = `<div class="empty">${i18n[currentLang]['notFound']}</div>`; setStatus('❌ 0');
     } else {
-      setStatus(`✅ ${places.length} · ${(state.radius/1000)} km`); render();
+      setStatus(`✅ ${places.length} jagah mili · ${(state.radius/1000)} km`);
+      render();
     }
   }catch(err){
-    $('list').innerHTML = `<div class="empty">${i18n[currentLang]['netErr']}</div>`; setStatus('❌ Error');
+    $('list').innerHTML = `<div class="empty">${i18n[currentLang]['netErr']}</div>`; setStatus('❌ All Servers Busy');
   }finally{ state.busy = false; $('locBtn').disabled = false; }
 }
 
