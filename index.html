@@ -97,6 +97,10 @@
 </div>
 
 <script>
+// 👇 SIRF YAHAN APNI API KEY DAALEIN 👇
+const GEOAPIFY_API_KEY = '2ab5dd8b9f444593bcb58fc3ee091563';
+// 👆 YAHAN TAK 👆
+
 let map, markersGroup;
 const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' }; 
 let favorites = JSON.parse(localStorage.getItem('ap_favs') || '[]');
@@ -115,70 +119,32 @@ function initMap(lat, lon) {
 
 function dist(a,b,c,d){ const R=6371000, t=x=>x*Math.PI/180; const dLat=t(c-a), dLon=t(d-b); const h=Math.sin(dLat/2)**2 + Math.cos(t(a))*Math.cos(t(c))*Math.sin(dLon/2)**2; return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h)); }
 
-function categorize(t){
-  const am = t.amenity||'', to = t.tourism||'';
-  if (/^(restaurant|cafe|fast_food|food_court)$/.test(am)) return 'khana';
-  if (/^(hotel|guest_house|hostel|motel)$/.test(to)) return 'hotel';
-  if (t.shop || am==='marketplace') return 'shopping';
-  if (t.historic || /^(attraction|museum|viewpoint|gallery)$/.test(to) || t.leisure==='park') return 'ghumna';
+function categorize(cat){
+  if (cat.includes('catering')) return 'khana';
+  if (cat.includes('accommodation')) return 'hotel';
+  if (cat.includes('commercial')) return 'shopping';
+  if (cat.includes('tourism') || cat.includes('leisure')) return 'ghumna';
   return 'other';
 }
 
 function iconFor(p){
-  if (p.cat==='khana') return p.tags.amenity==='cafe' ? '☕' : '🍽️';
+  if (p.cat==='khana') return '🍽️';
   if (p.cat==='hotel') return '🏨';
   if (p.cat==='shopping') return '🛍️';
-  if (p.cat==='ghumna') return p.tags.historic ? '🏛️' : (p.tags.leisure==='park' ? '🌳' : '📸');
+  if (p.cat==='ghumna') return '📸';
   return '📍';
 }
 
 function typeLabel(p){
-  const t = p.tags;
-  const mapObj = { restaurant:'Restaurant', cafe:'Cafe', fast_food:'Fast Food', hotel:'Hotel', attraction:'Attraction', park:'Park' };
-  let v = mapObj[t.amenity] || mapObj[t.tourism] || mapObj[t.leisure] || null;
-  if (v) return v;
-  if (t.shop) return t.shop.charAt(0).toUpperCase()+t.shop.slice(1)+' Shop';
-  if (t.historic) return 'Historical Place';
+  const cat = p.categories[0] || '';
+  const mapObj = { catering:'Restaurant/Cafe', accommodation:'Hotel', commercial:'Shop', tourism:'Sightseeing', leisure:'Park' };
+  for (let key in mapObj) { if (cat.includes(key)) return mapObj[key]; }
   return 'Place';
 }
 
-function buildQuery(lat, lon, r){
-  const A = q => `nwr[${q}](around:${r},${lat},${lon});`;
-  const parts = [
-    A('"amenity"~"^(restaurant|cafe|fast_food)$"'),
-    A('"tourism"~"^(hotel|guest_house|attraction)$"'),
-    A('"shop"~"^(supermarket|mall|convenience|clothes)$"'), 
-    A('"leisure"="park"')
-  ];
-  return `[out:json][timeout:15];(${parts.join('')});out center 100;`; 
-}
-
-// POST Request (Jo mobile network block nahi karte)
-async function fetchData(q) {
-  const servers = [
-    'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass-api.de/api/interpreter'
-  ];
-
-  for (let server of servers) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); 
-      
-      const response = await fetch(server, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(q),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      if (response.ok) return await response.json();
-    } catch (error) {
-      // Agar ek server fail ho toh dusra try karo
-    }
-  }
-  throw new Error("Server Error");
+function buildGeoapifyUrl(lat, lon, r) {
+  const categories = 'catering.restaurant,catering.cafe,catering.fast_food,commercial.supermarket,commercial.shopping_mall,accommodation.hotel,accommodation.guest_house,tourism.attraction,leisure.park';
+  return `https://api.geoapify.com/v2/places?categories=${categories}&filter=circle:${lon},${lat},${r}&limit=50&apiKey=${GEOAPIFY_API_KEY}`;
 }
 
 async function loadPlaces(){
@@ -190,16 +156,19 @@ async function loadPlaces(){
   initMap(state.loc.lat, state.loc.lon);
   
   try{
-    const q = buildQuery(state.loc.lat, state.loc.lon, state.radius);
-    const data = await fetchData(q); 
+    const url = buildGeoapifyUrl(state.loc.lat, state.loc.lon, state.radius);
+    const response = await fetch(url);
+    if(!response.ok) throw new Error("API Error");
+    const data = await response.json();
     
     const seen = new Set();
-    let places = (data.elements || []).filter(e => e.tags && e.tags.name).map(e => {
-        let lat = e.lat || (e.center && e.center.lat);
-        let lon = e.lon || (e.center && e.center.lon);
+    let places = (data.features || []).map(e => {
+        const props = e.properties;
+        const lat = props.lat;
+        const lon = props.lon;
         if(!lat || !lon) return null; 
         const d = dist(state.loc.lat, state.loc.lon, lat, lon);
-        return { id: e.id, name: e.tags.name, tags: e.tags, lat: lat, lon: lon, d: d, cat: categorize(e.tags) };
+        return { id: props.place_id, name: props.name || props.address_line1 || 'Unknown Place', categories: props.categories, lat: lat, lon: lon, d: d, cat: categorize(props.categories.join(',')) };
       }).filter(p => {
         if (!p) return false;
         const k = p.name.toLowerCase().trim();
@@ -216,8 +185,8 @@ async function loadPlaces(){
       render();
     }
   }catch(err){
-    $('list').innerHTML = `<div class="empty">❌ Server ne jawab nahi diya.<br><br>Kripya 5km select karein ya thodi der baad try karein.</div>`; 
-    setStatus('❌ Timeout');
+    $('list').innerHTML = `<div class="empty">❌ API Key galat hai ya limit khatam.<br><br>Kripya API key check karein.</div>`; 
+    setStatus('❌ Error');
   }finally{ 
     state.busy = false; $('locBtn').disabled = false; 
   }
@@ -241,7 +210,7 @@ function render(){
     const d = p.d < 1000 ? Math.round(p.d) + ' m' : (p.d/1000).toFixed(1) + ' km';
     const isFav = favorites.includes(p.id) ? 'active' : '';
     return `<div class="card" data-i="${state.places.indexOf(p)}">
-      <button class="fav-btn ${isFav}" onclick="toggleFav(event, ${p.id})">${isFav?'⭐':'☆'}</button>
+      <button class="fav-btn ${isFav}" onclick="toggleFav(event, '${p.id}')">${isFav?'⭐':'☆'}</button>
       <div class="ico">${iconFor(p)}</div>
       <div class="body"><div class="nm">${esc(p.name)}</div><div class="meta">${esc(typeLabel(p))}</div></div>
       <div class="dist"><div class="dist-num">${d}</div><a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}" target="_blank" class="go-btn" onclick="event.stopPropagation();">➤ Go</a></div>
