@@ -91,7 +91,6 @@
   <button class="mic-btn" id="micBtn">🎤</button>
 </div>
 
-<!-- Buttons Fix Kiye Gaye Hain -->
 <div class="chips" id="chips">
   <div class="chip on" data-f="all" data-i18n="catAll">🎯 Sab Kuch</div>
   <div class="chip" data-f="fav" data-i18n="catFav">⭐ Saved</div>
@@ -103,8 +102,8 @@
 
 <div class="radius" id="radius">
   <button data-r="1000">1 km</button>
-  <button data-r="2500" class="on">2.5 km</button>
-  <button data-r="5000">5 km</button>
+  <button data-r="2500">2.5 km</button>
+  <button data-r="5000" class="on">5 km</button>
   <button data-r="10000">10 km</button>
 </div>
 
@@ -133,7 +132,7 @@ const i18n = {
     emptyList: "👆 Upar wala button dabaiye<br>Phir yahan list aayegi",
     loading: "Data la rahe hain...", searching: "km ke andar search ho raha hai...",
     locFinding: "📡 Location dhoond rahe hain...", locErr: "❌ Location nahi mili. GPS on karein.",
-    netErr: "❌ Server busy.<br><br>Kripya 2.5 km select karein ya thodi der baad <b>'Search Again'</b> dabayein.",
+    netErr: "❌ Server busy.<br><br>Kripya 5 km select karein ya thodi der baad <b>'Search Again'</b> dabayein.",
     noResult: "Aapki search se kuch nahi mila.<br>Doosra naam try karein.",
     notFound: "Is area mein koi jagah nahi mili.<br>Kripya 5 km ya 10 km select karein.",
     noFav: "Aapne abhi tak koi jagah save nahi ki hai.<br>Kisi bhi card par ⭐ dabakar save karein.",
@@ -148,7 +147,7 @@ const i18n = {
     emptyList: "👆 Tap the button above<br>to see places here",
     loading: "Fetching data...", searching: "km area searched...",
     locFinding: "📡 Finding your location...", locErr: "❌ Location not found. Turn on GPS.",
-    netErr: "❌ Server busy.<br><br>Try 2.5 km or try again in a moment.",
+    netErr: "❌ Server busy.<br><br>Try 5 km or try again in a moment.",
     noResult: "Nothing found for your search.<br>Try another name.",
     notFound: "No places found.<br>Try 5 km or 10 km.",
     noFav: "You haven't saved any places yet.<br>Tap ⭐ on any card to save.",
@@ -159,7 +158,7 @@ const i18n = {
 
 let currentLang = localStorage.getItem('ap_lang') || 'hi';
 let map, markersGroup;
-const state = { loc:null, places:[], cat:'all', radius:2500, busy:false, search:'' };
+const state = { loc:null, places:[], cat:'all', radius:5000, busy:false, search:'' }; // Default 5km
 let favorites = JSON.parse(localStorage.getItem('ap_favs') || '[]');
 const $ = id => document.getElementById(id);
 const setStatus = s => $('status').textContent = s;
@@ -254,10 +253,9 @@ function buildQuery(lat, lon, r){
     A('"historic"'),
     A('"leisure"="park"')
   ];
-  return `[out:json][timeout:15];(${parts.join('')});out center 100;`; 
+  return `[out:json][timeout:15];(${parts.join('')});out center 150;`; 
 }
 
-// Naya Codetabs Proxy (Jo mobile network par block nahi hota)
 async function getData(q){
   try {
     const ctrl = new AbortController();
@@ -267,7 +265,6 @@ async function getData(q){
     if(res.ok) return await res.json();
   } catch(e) {}
   
-  // Agar Codetabs fail ho toh Kumi try karein
   try { 
     let res = await fetch('https://overpass.kumi.systems/api/interpreter?data=' + encodeURIComponent(q)); 
     if(res.ok) return await res.json(); 
@@ -280,7 +277,7 @@ async function loadPlaces(){
   if (state.busy || !state.loc) return;
   state.busy = true; $('locBtn').disabled = true;
   
-  const cacheKey = `cache_v6_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
+  const cacheKey = `cache_v7_${state.loc.lat.toFixed(3)}_${state.loc.lon.toFixed(3)}_${state.radius}`;
   const cachedData = localStorage.getItem(cacheKey);
 
   if (cachedData) {
